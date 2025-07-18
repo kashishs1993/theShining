@@ -4,10 +4,11 @@ import {loadAudio, loadGLTF, loadVideo} from "./libs/loader.js";
 
 document.addEventListener('DOMContentLoaded', () => {
   const start = async() => {
+
     // initialize MindAR 
     const mindarThree = new MindARThree({
       container: document.body,
-      imageTargetSrc: './hiro.mind',
+      imageTargetSrc: './shining.mind',
        uiScanning: "no",
       uiLoading: "no",
     });
@@ -20,10 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const geometry = new THREE.PlaneGeometry(1,1.25);
     const material = new THREE.MeshBasicMaterial({map: texture});
     const plane = new THREE.Mesh(geometry, material);
-
-    // create AR object
     
-    // create anchor
+    //anchor
     const anchor = mindarThree.addAnchor(0);
     anchor.group.add(plane);
 
@@ -44,5 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
       renderer.render(scene, camera);
     });
   }
-  start();
+  // start button
+  const startButton = document.createElement("button");
+  startButton.textContent = "Start";
+  startButton.addEventListener("click", start);
+  document.body.appendChild(startButton);
+  // start();
 });
