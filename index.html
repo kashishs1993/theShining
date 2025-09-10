@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -27,4 +27,146 @@
     }
   </style>
   <body></body>
+</html> -->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebXR Model Reticle Lock + Release</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-gesture-detector@3.0.4/dist/aframe-gesture-detector.min.js"></script>
+    <script>
+      // Hit-test with reticle
+      AFRAME.registerComponent("ar-hit-test", {
+        init: function () {
+          const sceneEl = this.el.sceneEl;
+          this.modelLocked = false; // Track if model stopped following
+
+          // Reticle
+          this.reticle = document.createElement("a-entity");
+          this.reticle.setAttribute("geometry", {
+            primitive: "ring",
+            radiusInner: 0.04,
+            radiusOuter: 0.05,
+          });
+          this.reticle.setAttribute("material", {
+            color: "yellow",
+            shader: "flat",
+            opacity: 0.8,
+          });
+          this.reticle.setAttribute("rotation", "-90 0 0");
+          this.reticle.setAttribute("visible", "false");
+          sceneEl.appendChild(this.reticle);
+
+          // Model
+          this.model = document.createElement("a-entity");
+          this.model.setAttribute(
+            "gltf-model",
+            "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Duck/glTF/Duck.gltf"
+          );
+          this.model.setAttribute("scale", "0.3 0.3 0.3");
+          this.model.setAttribute("gesture-handler", "");
+          this.model.setAttribute("visible", "false");
+          sceneEl.appendChild(this.model);
+
+          // Unlock model after first gesture interaction
+          sceneEl.addEventListener("onefingermove", () => {
+            this.modelLocked = true;
+          });
+          sceneEl.addEventListener("twofingermove", () => {
+            this.modelLocked = true;
+          });
+
+          this.hitTestSource = null;
+          this.viewerSpace = null;
+          this.refSpace = null;
+        },
+
+        tick: function () {
+          const frame = this.el.sceneEl.frame;
+          if (!frame) return;
+
+          if (!this.refSpace) {
+            this.refSpace = this.el.sceneEl.renderer.xr.getReferenceSpace();
+          }
+
+          if (!this.viewerSpace) {
+            this.el.sceneEl.xrSession
+              .requestReferenceSpace("viewer")
+              .then((space) => {
+                this.viewerSpace = space;
+                this.el.sceneEl.xrSession
+                  .requestHitTestSource({ space })
+                  .then((source) => {
+                    this.hitTestSource = source;
+                  });
+              });
+          }
+
+          if (this.hitTestSource && this.refSpace && !this.modelLocked) {
+            const hitTestResults = frame.getHitTestResults(this.hitTestSource);
+            if (hitTestResults.length > 0) {
+              const pose = hitTestResults[0].getPose(this.refSpace);
+
+              // Reticle follows surface
+              this.reticle.object3D.visible = true;
+              this.reticle.object3D.position.copy(pose.transform.position);
+              this.reticle.object3D.quaternion.copy(pose.transform.orientation);
+
+              // Model follows reticle until locked
+              this.model.object3D.visible = true;
+              this.model.object3D.position.copy(this.reticle.object3D.position);
+              this.model.object3D.quaternion.copy(
+                this.reticle.object3D.quaternion
+              );
+            }
+          }
+        },
+      });
+
+      // Gesture handler (move + rotate, no scaling)
+      AFRAME.registerComponent("gesture-handler", {
+        init: function () {
+          const el = this.el;
+          this.rotation = { y: 0 };
+
+          // One finger drag → move
+          el.sceneEl.addEventListener("onefingerstart", (e) => {
+            this.startPosition = e.detail.position;
+          });
+
+          el.sceneEl.addEventListener("onefingermove", (e) => {
+            if (!this.startPosition) return;
+            const delta = e.detail.positionChange;
+            el.object3D.position.x += delta.x / 100;
+            el.object3D.position.z += delta.y / 100;
+          });
+
+          // Two finger drag → rotate Y
+          el.sceneEl.addEventListener("twofingermove", (e) => {
+            this.rotation.y += e.detail.positionChange.x * 0.5;
+            el.object3D.rotation.y = THREE.MathUtils.degToRad(this.rotation.y);
+          });
+        },
+      });
+    </script>
+  </head>
+  <body>
+    <a-scene
+      renderer="colorManagement: true;"
+      xrweb="optionalFeatures: hit-test, dom-overlay; overlayElement: #overlay"
+      ar-hit-test
+      gesture-detector
+    >
+      <a-camera></a-camera>
+    </a-scene>
+    <div id="overlay">
+      <p style="position: absolute; top: 10px; left: 10px; color: white">
+        Move your phone to detect a surface. Drag/rotate once to place model
+        permanently.
+      </p>
+    </div>
+  </body>
 </html>
